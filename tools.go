@@ -50,6 +50,11 @@ func (t *Tools) UploadOneFile(r *http.Request, uploadDir string, rename ...bool)
 	return files[0], nil
 }
 
+
+// UploadFiles uploads one or more file to a specified directory, and gives files as random name.
+// It returns a slice containing the newly named files, the original file names, the size of the files,
+// and potentially an error. If the optional last parameter is not set to true, then we will not rename
+// the files, but will use the original file names
 func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) ([]*UploadedFile, error) {
 	renameFile := true
 	if len(rename) > 0 {
@@ -62,7 +67,12 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 		t.MaxFileSize = int(math.Pow(1024, 3))
 	}
 
-	err := r.ParseMultipartForm(int64(t.MaxFileSize))
+	err := t.CreateDirIfNotExist(uploadDir)
+	if err != nil {
+		return nil, err
+	}
+
+	err = r.ParseMultipartForm(int64(t.MaxFileSize))
 	if err != nil {
 		return nil, errors.New("the uploaded file is too big")
 	}
@@ -83,7 +93,6 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 					return nil, err
 				}
 
-				// TODO: check to see if the file type is permitted
 				allowed := false
 				fileType := http.DetectContentType(buff)
 
@@ -140,4 +149,19 @@ func (t *Tools) UploadFiles(r *http.Request, uploadDir string, rename ...bool) (
 	}
 
 	return uploadedFiles, nil
+}
+
+
+// CreateDirIfNotExist creates a directory, and all necessary parents, if it does not exist
+func (t *Tools)CreateDirIfNotExist(path string)error{
+	const mode = 0755
+
+	if _, err := os.Stat(path); os.IsNotExist(err){
+		err := os.MkdirAll(path, mode)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
